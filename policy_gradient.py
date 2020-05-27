@@ -100,7 +100,7 @@ class PolicyNN:
 
         states_matrix = np.vstack(states)
         targets_matrix = action_probs + (
-            ALPHA * (discounted_rewards * np.vstack(gradients))
+            ALPHA * (norm_discounted_rewards * np.vstack(gradients))
         )
 
         self.model.train_on_batch(states_matrix, targets_matrix)
