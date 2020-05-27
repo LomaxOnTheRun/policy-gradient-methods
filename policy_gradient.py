@@ -5,13 +5,14 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import gym
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
 
-MAX_EPISODES = 200  # 1000
+MAX_EPISODES = 1000
 ALPHA = 1e-4  # Policy gradient learning rate
 GAMMA = 0.99  # Reward decay rate
 RANDOM_SEED = 0
@@ -78,43 +79,50 @@ class PolicyNN:
 
         rewards = np.vstack(rewards)
 
+        # Calculate discounted reward
         discounted_rewards = []
-        gradients = []
         for t in range(num_steps):
-            # Calculate discounted reward
             discounted_reward = 0
             for i, reward in enumerate(rewards[t:]):
                 discounted_reward += (GAMMA ** i) * reward
             discounted_rewards.append(discounted_reward)
 
-            # Calculate the gradients
+        # Normalize discounted rewards
+        mean_rewards = np.mean(discounted_rewards)
+        std_rewards = np.std(discounted_rewards) + 1e-7  # Avoiding zero div
+        norm_discounted_rewards = (discounted_rewards - mean_rewards) / std_rewards
+
+        # Calculate the gradients
+        gradients = []
+        for t in range(num_steps):
             encoded_action = np.eye(self.action_shape)[actions[t]]
             gradients.append(encoded_action - action_probs[t])
 
         states_matrix = np.vstack(states)
-        gradients_matrix = np.vstack(gradients)
+        targets_matrix = action_probs + (
+            ALPHA * (discounted_rewards * np.vstack(gradients))
+        )
 
-        # # Normalize discounted rewards
-        # mean_rewards = np.mean(discounted_rewards)
-        # std_rewards = np.std(discounted_rewards) + 1e-7  # Avoiding zero div
-        # norm_discounted_rewards = (discounted_rewards - mean_rewards) / std_rewards
-
-        gradients_matrix *= discounted_rewards
-        gradients_matrix = ALPHA * np.vstack([gradients_matrix]) + action_probs
-
-        self.model.train_on_batch(states_matrix, gradients_matrix)
+        self.model.train_on_batch(states_matrix, targets_matrix)
 
 
-env = gym.make("CartPole-v0")  # env to import
+env = gym.make("CartPole-v0")
 
+# Set random seed
 np.random.seed(RANDOM_SEED)
 tf.random.set_seed(RANDOM_SEED)
 env.seed(RANDOM_SEED)
+
+# Set up graph
+plt.ion()
+fig = plt.figure()
+ax = fig.add_subplot(111)
 
 policy = PolicyNN(env)
 
 # Used for final graph
 episode_steps = []
+success_episodes = 0
 
 for episode in range(MAX_EPISODES):
     state = env.reset()
@@ -140,7 +148,21 @@ for episode in range(MAX_EPISODES):
             policy.update(states, actions, action_probs, rewards)
             episode_steps.append(step)
             print(f"Episode {episode + 1}:\tAgent lasted {step} steps")
+
+            # Update graph each step
+            ax.plot(episode_steps, "blue")
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+
             break
+
+    if episode_steps[-1] == SUCCESS_STEPS:
+        success_episodes += 1
+    else:
+        success_episodes = 0
+
+    if success_episodes == SUCCESS_EPISODES:
+        print(f"Environment completed after {episode} episodes")
 
 # Plot results
 plt.plot(episode_steps)
