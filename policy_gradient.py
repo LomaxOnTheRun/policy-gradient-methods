@@ -35,9 +35,8 @@ class PolicyNN:
         """
         model = keras.Sequential()
         model.add(keras.Input(shape=self.state_shape))
-        model.add(keras.layers.Dense(24, activation="relu"))
         model.add(keras.layers.Dense(12, activation="relu"))
-        # model.add(keras.layers.Dense(128, activation="relu"))
+        model.add(keras.layers.Dense(12, activation="relu"))
         model.add(keras.layers.Dense(self.action_shape, activation="softmax"))
         model.compile(
             loss="categorical_crossentropy", optimizer=keras.optimizers.Adam(lr=0.01),
@@ -93,15 +92,13 @@ class PolicyNN:
         norm_discounted_rewards = (discounted_rewards - mean_rewards) / std_rewards
 
         # Calculate the gradients
-        gradients = []
+        gradients = np.zeros((num_steps, self.action_shape))
         for t in range(num_steps):
-            encoded_action = np.eye(self.action_shape)[actions[t]]
-            gradients.append(encoded_action - action_probs[t])
+            action = actions[t]
+            gradients[t][action] = 1 - action_probs[t][action]
 
         states_matrix = np.vstack(states)
-        targets_matrix = action_probs + (
-            ALPHA * (norm_discounted_rewards * np.vstack(gradients))
-        )
+        targets_matrix = action_probs + (ALPHA * norm_discounted_rewards * gradients)
 
         self.model.train_on_batch(states_matrix, targets_matrix)
 
