@@ -1,28 +1,14 @@
-import os
-
-# TODO: Actually fix hese things instead of just ignoring them
-# Reduce logging from TF
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-
-import gym
-import matplotlib.animation as animation
-import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 
+from shared import run_environment
 
-MAX_EPISODES = 1000
+
 ALPHA = 1e-4  # Policy gradient learning rate
 GAMMA = 0.99  # Reward decay rate
-RANDOM_SEED = 0
-
-# Environment solved at 195 steps for 100 consecutive episodes
-SUCCESS_EPISODES = 100
-SUCCESS_STEPS = 195
 
 
-class PolicyNN:
+class MCPolicyGradientAgent:
     def __init__(self, env):
         self.state_shape = env.observation_space.shape  # the state space
         self.action_shape = env.action_space.n  # the action space
@@ -103,66 +89,4 @@ class PolicyNN:
         self.model.train_on_batch(states_matrix, targets_matrix)
 
 
-env = gym.make("CartPole-v0")
-
-# Set random seed
-np.random.seed(RANDOM_SEED)
-tf.random.set_seed(RANDOM_SEED)
-env.seed(RANDOM_SEED)
-
-# Set up graph
-plt.ion()
-fig = plt.figure()
-ax = fig.add_subplot(111)
-
-policy = PolicyNN(env)
-
-# Used for final graph
-episode_steps = []
-success_episodes = 0
-
-for episode in range(MAX_EPISODES):
-    state = env.reset()
-    states = []
-    actions = []
-    action_probs = []
-    rewards = []
-
-    for step in range(1, SUCCESS_STEPS + 1):
-        # Interact with the world
-        action, action_prob = policy.get_action(state)
-        new_state, reward, done, _ = env.step(action)
-
-        # Record the details
-        states.append(state)
-        actions.append(action)
-        action_probs.append(action_prob)
-        rewards.append(reward)
-
-        state = new_state
-
-        if done:
-            policy.update(states, actions, action_probs, rewards)
-            episode_steps.append(step)
-            print(f"Episode {episode + 1}:\tAgent lasted {step} steps")
-
-            # Update graph each step
-            ax.plot(episode_steps, "blue")
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-
-            break
-
-    if episode_steps[-1] == SUCCESS_STEPS:
-        success_episodes += 1
-    else:
-        success_episodes = 0
-
-    if success_episodes == SUCCESS_EPISODES:
-        print(f"Environment completed after {episode} episodes")
-
-# Plot results
-plt.plot(episode_steps)
-plt.xlabel("Episode")
-plt.ylabel("Steps taken in episode")
-plt.show()
+run_environment(MCPolicyGradientAgent)
