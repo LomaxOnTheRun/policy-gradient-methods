@@ -8,11 +8,17 @@ ALPHA = 1e-4  # Policy gradient learning rate
 GAMMA = 0.99  # Reward decay rate
 
 
-class MCPolicyGradientAgent:
+class MCPolicyGradient:
     def __init__(self, env):
         self.state_shape = env.observation_space.shape  # the state space
-        self.action_shape = env.action_space.n  # the action space
-        self.model = self.build_model()  # build model
+        self.num_actions = env.action_space.n  # the action space
+        self.model = self.build_model()
+
+        # Save observations as this a Monte-Carlo algorithm (updates at end of episode)
+        self.states = []
+        self.actions = []
+        self.actions_probs = []
+        self.rewards = []
 
     def build_model(self):
         """
@@ -23,7 +29,7 @@ class MCPolicyGradientAgent:
         model.add(keras.Input(shape=self.state_shape))
         model.add(keras.layers.Dense(12, activation="relu"))
         model.add(keras.layers.Dense(12, activation="relu"))
-        model.add(keras.layers.Dense(self.action_shape, activation="softmax"))
+        model.add(keras.layers.Dense(self.num_actions, activation="softmax"))
         model.compile(
             loss="categorical_crossentropy", optimizer=keras.optimizers.Adam(lr=0.01),
         )
@@ -32,16 +38,16 @@ class MCPolicyGradientAgent:
     def get_action(self, state):
         """
         Select an action to take based on the current policy and state. Also return the
-        probability of having selected that action given the state in the current
+        probability of having selected each action given the state in the current
         policy.
         """
         state = state.reshape((1, *self.state_shape))  # Prefix with batch size
-        action_probs = self.model.predict(state).flatten()
-        action_probs /= np.sum(action_probs)
-        action = np.random.choice(self.action_shape, p=action_probs)
-        return action, action_probs
+        actions_prob = self.model.predict(state).flatten()
+        actions_prob /= np.sum(actions_prob)
+        action = np.random.choice(self.num_actions, p=actions_prob)
+        return action, actions_prob
 
-    def update(self, states, actions, action_probs, rewards):
+    def update(self, state, action, actions_prob, reward, done):
         """
         Update the policy with rewards gained throughout episode.
 
@@ -57,18 +63,25 @@ class MCPolicyGradientAgent:
             [0.  0.  1.  0.]  # Action 3 of 4 possible actions selected
         
         """
-        num_steps = len(states)
-        assert len(actions) == num_steps
-        assert len(action_probs) == num_steps
-        assert len(rewards) == num_steps
+        # In not the end of the episode, just keep track of values
+        if not done:
+            self.states.append(state)
+            self.actions.append(action)
+            self.actions_probs.append(actions_prob)
+            self.rewards.append(reward)
+            return
 
-        rewards = np.vstack(rewards)
+        num_steps = len(self.states)
+        assert len(self.actions) == num_steps
+        assert len(self.actions_probs) == num_steps
+        assert len(self.rewards) == num_steps
 
         # Calculate discounted reward
+        rewards = np.vstack(self.rewards)
         discounted_rewards = []
         for t in range(num_steps):
             discounted_reward = 0
-            for i, reward in enumerate(rewards[t:]):
+            for i, reward in enumerate(self.rewards[t:]):
                 discounted_reward += (GAMMA ** i) * reward
             discounted_rewards.append(discounted_reward)
 
@@ -76,17 +89,26 @@ class MCPolicyGradientAgent:
         mean_rewards = np.mean(discounted_rewards)
         std_rewards = np.std(discounted_rewards) + 1e-7  # Avoiding zero div
         norm_discounted_rewards = (discounted_rewards - mean_rewards) / std_rewards
+        norm_discounted_rewards = norm_discounted_rewards.reshape((-1, 1))
 
         # Calculate the gradients
-        gradients = np.zeros((num_steps, self.action_shape))
+        gradients = np.zeros((num_steps, self.num_actions))
         for t in range(num_steps):
-            action = actions[t]
-            gradients[t][action] = 1 - action_probs[t][action]
+            action = self.actions[t]
+            gradients[t][action] = 1 - self.actions_probs[t][action]
 
-        states_matrix = np.vstack(states)
-        targets_matrix = action_probs + (ALPHA * norm_discounted_rewards * gradients)
+        states_matrix = np.vstack(self.states)
+        targets_matrix = np.vstack(self.actions_probs) + (
+            ALPHA * norm_discounted_rewards * gradients
+        )
 
         self.model.train_on_batch(states_matrix, targets_matrix)
 
+        # Reset all retained info
+        self.states = []
+        self.actions = []
+        self.actions_probs = []
+        self.rewards = []
 
-run_environment(MCPolicyGradientAgent)
+
+run_environment(MCPolicyGradient)

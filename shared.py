@@ -40,26 +40,18 @@ def run_environment(policy_class, random_seed=None):
 
     for episode in range(MAX_EPISODES):
         state = env.reset()
-        states = []
-        actions = []
-        action_probs = []
-        rewards = []
 
         for step in range(1, SUCCESS_STEPS + 1):
             # Interact with the world
-            action, action_prob = policy.get_action(state)
+            action, actions_prob = policy.get_action(state)
             new_state, reward, done, _ = env.step(action)
 
-            # Record the details
-            states.append(state)
-            actions.append(action)
-            action_probs.append(action_prob)
-            rewards.append(reward)
+            # Always give option of updating, some methods wait until end of run
+            policy.update(state, action, actions_prob, reward, done)
 
             state = new_state
 
             if done:
-                policy.update(states, actions, action_probs, rewards)
                 episode_steps.append(step)
                 print(f"Episode {episode + 1}:\tAgent lasted {step} steps")
 
