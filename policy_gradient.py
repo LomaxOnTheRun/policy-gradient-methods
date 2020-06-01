@@ -1,10 +1,17 @@
 import numpy as np
+import tensorflow
 from tensorflow import keras
+from tensorflow.keras.optimizers import Adam
 
 from shared import run_environment
 
+from tensorflow.compat.v1 import disable_v2_behavior
 
-ALPHA = 1e-4  # Policy gradient learning rate
+# Required to avoid TF v2 errors
+disable_v2_behavior()
+
+
+ALPHA = 0.0005  # Policy gradient learning rate
 GAMMA = 0.99  # Reward decay rate
 
 
@@ -12,28 +19,38 @@ class MCPolicyGradient:
     def __init__(self, env):
         self.state_shape = env.observation_space.shape  # the state space
         self.num_actions = env.action_space.n  # the action space
-        self.model = self.build_model()
+        self.policy_model, self.predict_model = self.build_models()
 
         # Save observations as this a Monte-Carlo algorithm (updates at end of episode)
         self.states = []
         self.actions = []
-        self.actions_probs = []
         self.rewards = []
 
-    def build_model(self):
+    def build_models(self):
         """
-        Build a neural network with a single hidden layer. Softmax is used for the
-        final layer as we want to avoid the weights from ever reaching 0 or 1.
+        Build a neural network. Softmax is used for the final layer as we're
+        calculating probabilities.
         """
-        model = keras.Sequential()
-        model.add(keras.Input(shape=self.state_shape))
-        model.add(keras.layers.Dense(12, activation="relu"))
-        model.add(keras.layers.Dense(12, activation="relu"))
-        model.add(keras.layers.Dense(self.num_actions, activation="softmax"))
-        model.compile(
-            loss="categorical_crossentropy", optimizer=keras.optimizers.Adam(lr=0.01),
-        )
-        return model
+        states = keras.layers.Input(shape=self.state_shape)
+        advantage = keras.layers.Input(shape=[1])
+        hidden_1 = keras.layers.Dense(64, activation="relu")(states)
+        hidden_2 = keras.layers.Dense(64, activation="relu")(hidden_1)
+        probs = keras.layers.Dense(self.num_actions, activation="softmax")(hidden_2)
+
+        def custom_loss(y_true, y_pred):
+            clipped_y_pred = keras.backend.clip(y_pred, 1e-10, 1 - 1e-10)
+            log_likelihood = y_true * keras.backend.log(clipped_y_pred)
+            loss = keras.backend.sum(-log_likelihood * advantage)
+            return loss
+
+        # Main model used for training, needs additional advantages input
+        policy_model = keras.models.Model(inputs=[states, advantage], outputs=[probs])
+        policy_model.compile(loss=custom_loss, optimizer=Adam(lr=ALPHA))
+
+        # Model used for predicting, uses same weights as other model
+        predict_model = keras.models.Model(inputs=[states], outputs=[probs])
+
+        return policy_model, predict_model
 
     def get_action(self, state):
         """
@@ -42,12 +59,12 @@ class MCPolicyGradient:
         policy.
         """
         state = state.reshape((1, *self.state_shape))  # Prefix with batch size
-        actions_prob = self.model.predict(state).flatten()
+        actions_prob = self.predict_model.predict([state]).flatten()
         actions_prob /= np.sum(actions_prob)
         action = np.random.choice(self.num_actions, p=actions_prob)
-        return action, actions_prob
+        return action
 
-    def update(self, state, action, actions_prob, reward, done):
+    def update(self, state, action, reward, done):
         """
         Update the policy with rewards gained throughout episode.
 
@@ -67,47 +84,35 @@ class MCPolicyGradient:
         if not done:
             self.states.append(state)
             self.actions.append(action)
-            self.actions_probs.append(actions_prob)
             self.rewards.append(reward)
             return
 
         num_steps = len(self.states)
-        assert len(self.actions) == num_steps
-        assert len(self.actions_probs) == num_steps
-        assert len(self.rewards) == num_steps
 
-        # Calculate discounted reward
-        rewards = np.vstack(self.rewards)
-        discounted_rewards = []
+        # Create action encoding matrix
+        actions_matrix = np.zeros([num_steps, self.num_actions])
+        actions_matrix[np.arange(num_steps), self.actions] = 1
+
+        # Calculate discounted rewards (G in the literature)
+        discounted_rewards = np.zeros((num_steps, 1))
         for t in range(num_steps):
-            discounted_reward = 0
             for i, reward in enumerate(self.rewards[t:]):
-                discounted_reward += (GAMMA ** i) * reward
-            discounted_rewards.append(discounted_reward)
+                discounted_rewards[t] += (GAMMA ** i) * reward
 
-        # Normalize discounted rewards
+        # Normalize discounted rewards (baseline for REINFORCE algorithm)
         mean_rewards = np.mean(discounted_rewards)
-        std_rewards = np.std(discounted_rewards) + 1e-7  # Avoiding zero div
-        norm_discounted_rewards = (discounted_rewards - mean_rewards) / std_rewards
-        norm_discounted_rewards = norm_discounted_rewards.reshape((-1, 1))
+        std_rewards = np.std(discounted_rewards)
+        if np.std(discounted_rewards) <= 0:
+            std_rewards = 1  # Avoiding zero div
+        advantages = (discounted_rewards - mean_rewards) / std_rewards
 
-        # Calculate the gradients
-        gradients = np.zeros((num_steps, self.num_actions))
-        for t in range(num_steps):
-            action = self.actions[t]
-            gradients[t][action] = 1 - self.actions_probs[t][action]
+        states_matrix = np.array(self.states)
 
-        states_matrix = np.vstack(self.states)
-        targets_matrix = np.vstack(self.actions_probs) + (
-            ALPHA * norm_discounted_rewards * gradients
-        )
-
-        self.model.train_on_batch(states_matrix, targets_matrix)
+        self.policy_model.train_on_batch([states_matrix, advantages], actions_matrix)
 
         # Reset all retained info
         self.states = []
         self.actions = []
-        self.actions_probs = []
         self.rewards = []
 
 
