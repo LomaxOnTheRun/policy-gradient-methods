@@ -3,6 +3,7 @@ import tensorflow
 from tensorflow import keras
 from tensorflow.keras.optimizers import Adam
 
+from environments import get_env_info
 from shared import run_environment
 
 from tensorflow.compat.v1 import disable_v2_behavior
@@ -116,4 +117,7 @@ class MCPolicyGradient:
         self.rewards = []
 
 
-run_environment(MCPolicyGradient)
+# env_info = get_env_info("CartPole-v0")
+env_info = get_env_info("CartPole-v1")
+# env_info = get_env_info("LunarLander-v2")
+run_environment(MCPolicyGradient, env_info, display=True)

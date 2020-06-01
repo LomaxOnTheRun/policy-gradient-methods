@@ -1,4 +1,5 @@
 import os
+from time import sleep
 
 # TODO: Actually fix hese things instead of just ignoring them
 # Reduce logging from TF
@@ -10,19 +11,21 @@ import numpy as np
 import tensorflow as tf
 
 
-MAX_EPISODES = 2000
-
-# Environment solved at 195 steps for 100 consecutive episodes
-SUCCESS_EPISODES = 100
-SUCCESS_SCORE = 195
+MAX_EPISODES = 5000
 
 
-def run_environment(policy_class, random_seed=None, display=False):
+def run_environment(
+    policy_class, env_info, random_seed=None, display=False, render=False
+):
     """
     Run through the environment with a given policy.
     """
-    env = gym.make("CartPole-v0")
-    # env = gym.make("LunarLander-v2")
+    # Get env info
+    env_success_episodes = env_info["success_episodes"]
+    env_success_score = env_info["success_score"]
+    env = gym.make(env_info["name"])
+
+    print(f"Running environment {env_info['name']}")
 
     # Set random seed
     if random_seed is not None:
@@ -30,7 +33,12 @@ def run_environment(policy_class, random_seed=None, display=False):
         tf.random.set_seed(random_seed)
         env.seed(random_seed)
 
+    # Build policy agent
     policy = policy_class(env)
+
+    # Update graph each step, disables final graph
+    if display:
+        plt.ion()
 
     # Graph to display progress
     fig = plt.figure()
@@ -38,19 +46,15 @@ def run_environment(policy_class, random_seed=None, display=False):
     episode_scores = []
     average_scores = []
 
-    # Stops final graph
-    if display:
-        print("y")
-        plt.ion()
-
     for episode in range(MAX_EPISODES):
         state = env.reset()
-        step = 0
         score = 0
         done = False
 
         while not done:
-            step += 1
+            if render and episode % 100 == 0:
+                env.render()
+                sleep(0.01)
 
             # Interact with the world
             action = policy.get_action(state)
@@ -64,26 +68,29 @@ def run_environment(policy_class, random_seed=None, display=False):
 
             if done:
                 episode_scores.append(score)
-                average_scores.append(np.mean(episode_scores[-100:]))
+                average_score = np.mean(episode_scores[-env_success_episodes:])
+                average_scores.append(average_score)
                 print(
                     f"Episode {episode + 1}\t"
                     + f"Score: {score:.1f}\t"
-                    + f"Average score: {average_scores[-1]:.1f} steps"
+                    + f"Running average: {average_scores[-1]:.1f}"
                 )
 
                 # Update graph each step
                 if display:
-                    print("x")
                     ax.plot(episode_scores, "blue")
-                    # ax.plot(average_scores, "orange")
+                    ax.plot(average_scores, "orange")
                     fig.canvas.draw()
                     fig.canvas.flush_events()
 
                 break
 
-        mean_score = np.mean(episode_scores[-100:])
-        if len(scores) >= SUCCESS_EPISODES and mean_score >= SUCCESS_SCORE:
+        if (
+            len(episode_scores) >= env_success_episodes
+            and average_scores[-1] >= env_success_score
+        ):
             print(f"Environment completed after {episode} episodes")
+            break
 
     # Plot results
     plt.plot(episode_scores)

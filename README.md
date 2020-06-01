@@ -8,6 +8,19 @@ This is a repo to play around with policy gradient methods so I can get some pra
 
 This now works well. I've copied a lot of code from the excellent video [here](https://www.youtube.com/watch?v=IS0V8z8HXrM).
 
+This agent can only work with discrete actions spaces for now, but in theory could be expanded to work with continuous action spaces with relatively little work. It also cannot complete challenges where it gets a single reward at the very end of the episode, if it is hugely unlikely to stumble across the end my accident.
+
+With two hidden layers (64 nodes each), this agent is able to complete the following environments:
+
+- CartPole-v0 (in 461 episodes, averaged over 1 attempt)
+- CartPole-v1 (in 1246 episodes, averaged over 1 attempt)
+
+Environments it fails at despite being able to interface with:
+
+- LunarLander-v2 (highest seen is ~168.8 over 100 runs but then gets worse again)
+- Acrobot-v1 (it get close, but is dependent on a good run very early on)
+- MountainCar-v0 (never gets even close)
+
 ### Actor-Critic
 
 TODO
