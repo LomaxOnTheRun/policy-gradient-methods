@@ -23,8 +23,14 @@ Environments it fails at despite being able to interface with:
 
 ### Actor-Critic
 
-TODO
+Taken a lot of inspiration from [this video](https://www.youtube.com/watch?v=2vJtbAha3To) which is from the same YouTube channel as the REINFORCE was. Actor-critic seems to work, but _much_ more slowly than REINFORCE. I'm not sure if it's because the actor and the critic share a network and learning a value is very slow, or something else. Actually, it looks like it's the learning rate(s) which are about x10 lower than with REINFORCE. However, simply increasing the learning rates leads to unstability once the agent has "mostly learned" the environment.
+
+With two hidden layers (64 nodes each) and low learning rates (0.00001 and 0.00005), this agent is able to complete the following environments:
+
+- CartPole-v0 (in 4059 episodes, averaged over 1 attempt)
 
 ## Further improvements
 
 I'm currently using Tensorflow v1.15 equivalent by using `tensorflow.compat.v1.disable_v2_behavior`. I should actually upgrade to using v2 syntax.
+
+Add argparse shared functionality to easily pass in arguments from the command line.

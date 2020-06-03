@@ -11,7 +11,7 @@ import numpy as np
 import tensorflow as tf
 
 
-MAX_EPISODES = 5000
+MAX_EPISODES = 100000
 
 
 def run_environment(
@@ -61,7 +61,7 @@ def run_environment(
             new_state, reward, done, _ = env.step(action)
 
             # Always give option of updating, some methods wait until end of run
-            policy.update(state, action, reward, done)
+            policy.update(state, action, reward, new_state, done)
 
             state = new_state
             score += reward

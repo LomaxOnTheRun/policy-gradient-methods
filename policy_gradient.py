@@ -18,8 +18,8 @@ GAMMA = 0.99  # Reward decay rate
 
 class MCPolicyGradient:
     def __init__(self, env):
-        self.state_shape = env.observation_space.shape  # the state space
-        self.num_actions = env.action_space.n  # the action space
+        self.state_shape = env.observation_space.shape
+        self.num_actions = env.action_space.n
         self.policy_model, self.predict_model = self.build_models()
 
         # Save observations as this a Monte-Carlo algorithm (updates at end of episode)
@@ -65,7 +65,7 @@ class MCPolicyGradient:
         action = np.random.choice(self.num_actions, p=actions_prob)
         return action
 
-    def update(self, state, action, reward, done):
+    def update(self, state, action, reward, new_state, done):
         """
         Update the policy with rewards gained throughout episode.
 
