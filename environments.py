@@ -156,6 +156,14 @@ ENVIRONMENTS_INFO = {
     # https://github.com/openai/gym/wiki/Leaderboard#toy-text
     # These have been omitted as the solved conditions are not simply to achieve a
     # running average of a certain score.
+    #
+    # Other
+    "Pong-v0": {
+        "solvable": False,
+        "name": "Pong-v0",
+        "success_score": 10,  # Based on leaderboard scores
+        "success_episodes": 100,
+    },
 }
 
 

@@ -28,6 +28,10 @@ Taken a lot of inspiration from [this video](https://www.youtube.com/watch?v=2vJ
 With two hidden layers (64 nodes each) and low learning rates (0.00001 and 0.00005), this agent is able to complete the following environments:
 
 - CartPole-v0 (in 4059 episodes, averaged over 1 attempt)
+- CartPole-v1 (in 18627 episodes, averaged over 1 attempt)
+  - It _almost_ made it after ~7800
+- LunarLander (in 2530 episodes, averaged over 1 attempt)
+  - The lowest score was -2071.8 (!)
 
 ## Further improvements
 

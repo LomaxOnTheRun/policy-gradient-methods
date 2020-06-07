@@ -14,10 +14,10 @@ from tensorflow.compat.v1 import disable_v2_behavior
 disable_v2_behavior()
 
 
-# ACTOR_LEARNING_RATE = 0.00001  # Adam learning rate
-# CRITIC_LEARNING_RATE = 0.00005  # Adam learning rate
-ACTOR_LEARNING_RATE = 0.0005  # Adam learning rate
-CRITIC_LEARNING_RATE = 0.0025  # Adam learning rate
+ACTOR_LEARNING_RATE = 0.00001  # Adam learning rate
+CRITIC_LEARNING_RATE = 0.00005  # Adam learning rate
+# ACTOR_LEARNING_RATE = 0.0005  # Adam learning rate
+# CRITIC_LEARNING_RATE = 0.0025  # Adam learning rate
 GAMMA = 0.99  # Reward decay rate
 
 
@@ -109,7 +109,10 @@ class ActorCriticAgent:
         self.critic_model.fit(state_matrix, new_state_target, verbose=0)
 
 
-env_info = get_env_info("CartPole-v0")
-# env_info = get_env_info("CartPole-v1")
+# env_info = get_env_info("CartPole-v0")
+env_info = get_env_info("CartPole-v1")
 # env_info = get_env_info("LunarLander-v2")
+# env_info = get_env_info("Acrobot-v1")
+# env_info = get_env_info("MountainCar-v0")
+# run_environment(ActorCriticAgent, env_info, render_frequency=100)
 run_environment(ActorCriticAgent, env_info)

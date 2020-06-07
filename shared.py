@@ -15,7 +15,7 @@ MAX_EPISODES = 100000
 
 
 def run_environment(
-    policy_class, env_info, random_seed=None, display=False, render=False
+    policy_class, env_info, random_seed=None, display=False, render_frequency=0
 ):
     """
     Run through the environment with a given policy.
@@ -52,7 +52,7 @@ def run_environment(
         done = False
 
         while not done:
-            if render and episode % 100 == 0:
+            if render_frequency and episode % render_frequency == 0:
                 env.render()
                 sleep(0.01)
 
